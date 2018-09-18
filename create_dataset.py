@@ -26,7 +26,7 @@ import os
 #EXTRACT RAW BACKGROUND SEQUENCES FROM MOVIES
 dst_folder = "raw-dataset/backgrounds/1"
 #shutil.rmtree(dst_folder)
-ds.extract_backgrounds("/home/luca/Downloads/Film", dst_folder, 100, 30)
+ds.extract_backgrounds("path_to_media_gallery", dst_folder, 100, 30)
 #%%
 #CREATE DATASET FOR SINGLE TRIGGER WORD DETECTION"
 class_dirs = ["raw-dataset/words/not-vlc", "raw-dataset/words/vlc"]
