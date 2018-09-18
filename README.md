@@ -98,6 +98,6 @@ The latter problem can probably be faced without major changes, just working on 
 
 On the contrary, the former issues could only be tackled with a professional size database and with a different model architecture: it seems promising to me the idea of audio embeddings trained on a huge dataset of single spoken words. These audio embeddings could be used to match user words with available commands. Unfortunately the small relevance of a VLC player voice controller is not probably worth this huge effort.
 
-
+Another promising feature would be to find a way to obtain the output audio signal going to the speaker and subtract it from the signal recorded with the microphone (maybe after applying some delay). This would leave a signal with almost only the spoken trigger words and no background. I expect that a model trained to recognize trigger words with minimal background noise could perform much better than the current one. Unfortunately there is no simple/straightforward/reliable/crossplatform way to get this audio signal in python.
 
 
