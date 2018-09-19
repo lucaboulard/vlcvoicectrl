@@ -17,6 +17,8 @@ import random
 import IPython
 import os.path
 import math
+from scipy.io import wavfile
+from util_audio import spectrogram
 
 def evaluate_plot_single(Y, Yp, n_plot=10, ds_folder=None, delta=0, idx_list=None):
     """Plots prediction vs target for randomly selected samples (for the single trigger work detection case).
@@ -529,7 +531,7 @@ def compute_global_metrics_multi(Yt, Yp):
     return (m, m2)
 
 
-def search_peak_multi(yp):
+def search_peak_multi(yp, confidence_thres=0.5):
     """Search peaks in a prediction for the multiple trigger words case.
     
     This function helps to determine whether a trigger words has been detected
@@ -547,7 +549,7 @@ def search_peak_multi(yp):
     
     yb = yp[:,:1]
     ym = yp[:,1:]
-    PB = find_peaks(yb)
+    PB = find_peaks(yb,confidence_thres=confidence_thres)
     if len(PB)==0:
         return None, None
     n_classes = ym.shape[-1]
@@ -555,7 +557,7 @@ def search_peak_multi(yp):
     best_score = -1
     best_class = None
     for u in range(n_classes):
-        PM = find_peaks(ym[:,u])
+        PM = find_peaks(ym[:,u],confidence_thres=confidence_thres)
         pm, ioam = _match_peak(pb,PM,return_ioam=True)
         if pm is None:
             continue
@@ -566,6 +568,122 @@ def search_peak_multi(yp):
             best_class = u
     return pb, best_class
 
+
+
+def predict_audio_clip_single(model, filename, plot=True, confidence_thres=0.5):
+    """Makes prediction on a wav audioclip with a single trigger word model.
+    
+    Args:
+        model (keras.models.Model): Single trigger word prediction model.
+        filename (str): The filename (wav format) of the audioclip to predict.
+        plot (boolean): Whether to plot the prediction.
+        confidence_thres (float): Confidence threshold used to detect peaks (cfr. documentation of find_peaks()).
+    
+    Returns:
+        numpy.ndarray: The prediction (shape = (1, #timesteps, 1)).
+        list of (int,int): List of peaks as (first_ts, last_ts).
+    """
+    
+    rate, audio44khz = wavfile.read(filename)
+    assert abs(rate-44100)<1
+    x=spectrogram(audio44khz)
+    #del audio44khz
+    x = np.expand_dims(x,axis=0)
+    print(x.shape)
+    yp = model.predict(x, batch_size=1)
+    pp = find_peaks(yp,confidence_thres=confidence_thres)
+    print("# peaks", len(pp))
+    print("Peaks:")
+    [print(p) for p in pp]
+    if plot:
+        ax = plt.subplot(2, 1, 1)
+        plt.plot(yp[0], '-b')
+        [plt.axvline(x=p[0], color='r') for p in pp]
+        [plt.axvline(x=p[1], color='k') for p in pp]
+        #plt.gca().set_title("")
+        ax.set_ylim([-.1,1.1])
+        ax = plt.subplot(2, 1, 2)
+        plt.plot(audio44khz)
+        plt.show()
+    return yp, pp
+
+
+def predict_audio_clip_multi(model, filename, plot=True, confidence_thres=0.5):
+    """Makes prediction on a wav audioclip with a multiple trigger words model.
+    
+    Args:
+        model (keras.models.Model): Multiple trigger words prediction model.
+        filename (str): The filename (wav format) of the audioclip to predict.
+        plot (boolean): Whether to plot the prediction.
+        confidence_thres (float): Confidence threshold used to detect peaks in global binary feature (cfr. documentation of find_peaks()).
+    
+    Returns:
+        numpy.ndarray: The prediction (shape = (1, #timesteps, 1)).
+        list of (int,int): List of peaks as (first_ts, last_ts).
+        list of int: Class predicted for each peaks.
+    """
+    
+    rate, audio44khz = wavfile.read(filename)
+    assert abs(rate-44100)<1
+    x=spectrogram(audio44khz)
+    #del audio44khz
+    x = np.expand_dims(x,axis=0)
+    yp = model.predict(x, batch_size=1)[0]
+    
+    yb = yp[:,:1]
+    ym = yp[:,1:]
+    #print(yp.shape, yb.shape, ym.shape)
+    PB = find_peaks(yb,confidence_thres=confidence_thres)
+    PC=[]
+    n_classes = ym.shape[-1]
+    for pb in PB:
+        best_score = -1
+        best_class = None
+        for u in range(n_classes):
+            PM = find_peaks(ym[:,u])
+            pm, ioam = _match_peak(pb,PM,return_ioam=True)
+            if pm is None:
+                continue
+            pm_avg = ym[pm[0]:pm[1]].mean()
+            score = ioam*pm_avg
+            if score > best_score:
+                best_score = score
+                best_class = u
+        PC.append(best_class)
+    print("# peaks", len(PB))
+    print("Peaks:")
+    [print(p,c) for p,c in zip(PB,PC)]
+    if plot:
+        # PLOT BINARY
+        ax = plt.subplot(3, 1, 1)
+        plt.plot(audio44khz)
+        ax.set_title("audio clip")
+        
+        # PLOT BINARY
+        ax = plt.subplot(3, 1, 2)
+        plt.plot(yb, '-b', label='binary prediction')
+        if len(PB)>0:
+            plt.plot(ym[:,PC[0]], '-r', label='best class prediction')
+        [plt.axvline(x=p[0], color='r') for p in PB]
+        [plt.axvline(x=p[1], color='k') for p in PB]
+        plt.legend()
+        ax.set_ylim([-.1,1.1])
+        
+        # PLOT MULTI OTHERS
+        n_classes = ym.shape[-1]
+        if n_classes>1:
+            ax = plt.subplot(3, 1, 3)
+            for u in range(n_classes-1):
+                if len(PB)>0 and u==PC[0]:
+                    continue
+                plt.plot(ym[:,u])
+            ax.set_title("other class predictions") 
+            ax.set_ylim([-.1,1.1])
+        
+        plt.show()
+        plt.figure()
+    return yp, PB, PC
+    
 #%% TESTING find_peaks
 """
 plt.rcParams["figure.figsize"] =(12,5)
