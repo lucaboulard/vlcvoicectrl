@@ -1,6 +1,8 @@
 # vlcvoicectrl
 RNN based voice control for VLC player (using python3, keras and tensorflow)
 
+DEMO VIDEO: https://youtu.be/-tk_nfVBiBM
+
 This is a just-for-fun project I created to practice with LSTM recurrent neural nets. It is about trigger word detection task and inspired by DeepLearning.ai Sequence Model course on Coursera.
 
 Its aim is to create a python application listening to a microphone and allowing the user to send to a separate VLC player instance, a limited number of vocal commands, such as "play", "pause", "close"...
