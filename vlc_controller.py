@@ -73,7 +73,7 @@ class MicRecorder (threading.Thread):
             frames_per_buffer=frame_rate) #open recording stream
         while True: #thread main loop
             try:
-                chunk = stream.read(int(frame_rate/20))#get a chunk of audio data from the mic
+                chunk = stream.read(int(frame_rate/10))#get a chunk of audio data from the mic
             except IOError as e:
                 print("MicRecorder: Error - there was an exception in acquiring data from microphone:" , e)
                 if exitFlag is True:
